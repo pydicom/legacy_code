@@ -67,7 +67,7 @@ class Dataset(dict):
     Example (2) uses DICOM "keywords", defined starting in 2011 standard.
     PatientName is not actually a member of the object, but unknown member
     requests are checked against the DICOM dictionary. If the name matches a
-    DicomDictionary descriptive string, the corresponding tag is used
+    DicomDictionary keyword, the corresponding tag is used
     to look up or set the `DataElement` instance's value.
 
     :attribute indent_chars: for string display, the characters used to indent
@@ -75,6 +75,7 @@ class Dataset(dict):
 
     """
     indent_chars = "   "
+    module_tags = {}
 
     def __init__(self, *args, **kwargs):
         self._parent_encoding = kwargs.get('parent_encoding', default_encoding)
@@ -286,7 +287,7 @@ class Dataset(dict):
         data_elem = dict.__getitem__(self, tag)
 
         if isinstance(data_elem, DataElement):
-            return data_elem
+            return_val = data_elem
         elif isinstance(data_elem, tuple):
             # If a deferred read, then go get the value now
             if data_elem.value is None:
@@ -299,8 +300,15 @@ class Dataset(dict):
             else:
                 character_set = default_encoding
             # Not converted from raw form read from file yet; do so now
+            # and replace the value in the dictionary
             self[tag] = DataElement_from_raw(data_elem, character_set)
-        return dict.__getitem__(self, tag)
+        return_val = dict.__getitem__(self, tag)
+        
+        # Before returning, see if registered IODs/Modules need to intervene
+        if tag in self.module_tags:
+            module = self.module_tags[tag]
+            return_val = module.get_item(self, tag, return_val)
+        return return_val
 
     def get_item(self, key):
         """Return the raw data element if possible.
@@ -492,6 +500,11 @@ class Dataset(dict):
                     strings.append(indent_str + repr(data_element))
         return "\n".join(strings)
 
+    @classmethod
+    def register_module(cls, module):
+        tag_module_mapping = dict((tag, module) for tag in module.tags())
+        cls.module_tags.update(tag_module_mapping)
+        
     def remove_private_tags(self):
         """Remove all Dicom private tags in this dataset and those contained within."""
         def RemoveCallback(dataset, data_element):
@@ -581,7 +594,13 @@ class Dataset(dict):
                 if isinstance(data_element, RawDataElement):
                     data_element = DataElement_from_raw(data_element, self._character_set)
                 data_element.private_creator = self[private_creator_tag].value
-        dict.__setitem__(self, tag, data_element)
+                
+        # Before setting, see if registered IODs/Modules need to intervene
+        if False and tag in self.module_tags:
+            module = self.module_tags[tag]
+            module.set_item(self, tag, data_element)
+        else:
+            dict.__setitem__(self, tag, data_element)
 
     def __str__(self):
         """Handle str(dataset)."""
