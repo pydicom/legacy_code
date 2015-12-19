@@ -18,14 +18,13 @@ from pydicom.valuerep import extra_length_VRs
 from pydicom.charset import default_encoding, convert_encodings
 from pydicom.compat import in_py2
 from pydicom import compat
-
+from pydicom import config  # don't import datetime_conversion directly
 from pydicom.config import logger
-from pydicom import config
 
 stat_available = True
 try:
     from os import stat
-except:
+except ImportError:
     stat_available = False
 
 from pydicom.errors import InvalidDicomError
@@ -625,6 +624,29 @@ def read_partial(fileobj, stop_when=None, defer_size=None, force=False):
             is_implicit_VR = False
     else:  # no header -- use the is_little_endian, implicit assumptions
         file_meta_dataset.TransferSyntaxUID = pydicom.uid.ImplicitVRLittleEndian
+        endian_chr = "<"
+        element_struct = Struct(endian_chr + "HH2sH")
+        # Try reading first 8 bytes
+        group, elem, VR, length = element_struct.unpack(fileobj.read(8))
+        # Rewind file object
+        fileobj.seek(0)
+        # If the VR is a valid VR, assume Explicit VR transfer systax
+        from pydicom.values import converters
+        if not in_py2:
+            VR = VR.decode(default_encoding)
+        if VR in converters.keys():
+            is_implicit_VR = False
+            # Determine if group in low numbered range (Little vs Big Endian)
+            if group == 0:  # got (0,0) group length. Not helpful.
+                # XX could use similar to http://www.dclunie.com/medical-image-faq/html/part2.html code example
+                msg = ("Not able to guess transfer syntax when first item "
+                       "is group length")
+                raise NotImplementedError(msg)
+            if group < 2000:
+                file_meta_dataset.TransferSyntaxUID = pydicom.uid.ExplicitVRLittleEndian
+            else:
+                file_meta_dataset.TransferSyntaxUID = pydicom.uid.ExplicitVRBigEndian
+                is_little_endian = False
 
     try:
         dataset = read_dataset(fileobj, is_implicit_VR, is_little_endian,

@@ -6,9 +6,13 @@
 #    available at https://github.com/darcymason/pydicom
 
 import unittest
+from datetime import date
 from pydicom.multival import MultiValue
 from pydicom.valuerep import DS, DSfloat, DSdecimal, IS
-import pydicom.config
+from pydicom import config
+from pydicom.dataset import Dataset
+from pydicom.sequence import Sequence
+from copy import deepcopy
 
 import sys
 python_version = sys.version_info
@@ -24,10 +28,10 @@ class MultiValuetests(unittest.TestCase):
 
     def testLimits(self):
         """MultiValue: Raise error if any item outside DICOM limits...."""
-        original_flag = pydicom.config.enforce_valid_values
-        pydicom.config.enforce_valid_values = True
+        original_flag = config.enforce_valid_values
+        config.enforce_valid_values = True
         self.assertRaises(OverflowError, MultiValue, IS, [1, -2 ** 31 - 1])  # Overflow error not raised for IS out of DICOM valid range
-        pydicom.config.enforce_valid_values = original_flag
+        config.enforce_valid_values = original_flag
 
     def testAppend(self):
         """MultiValue: Append of item converts it to required type..."""
@@ -58,6 +62,15 @@ class MultiValuetests(unittest.TestCase):
         for val in multival:
             self.assertTrue(isinstance(val, IS), "Slice IS value not correct type")
         self.assertEqual(multival[4], 16, "Set by slice failed for item 4 of list")
+    
+    def testIssue236DeepCopy(self):
+        """MultiValue: deepcopy of MultiValue does not generate an error"""
+        multival = MultiValue(IS, range(7))
+        deepcopy(multival)
+        multival = MultiValue(DS, range(7))
+        deepcopy(multival)
+        multival = MultiValue(DSfloat, range(7))
+        deepcopy(multival)
 
 
 if __name__ == "__main__":

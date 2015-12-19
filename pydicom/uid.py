@@ -7,11 +7,9 @@
 
 import os
 import uuid
-import datetime
 import random
 import hashlib
 import re
-from math import fabs
 
 from pydicom._uid_dict import UID_dictionary
 from pydicom import compat
@@ -25,6 +23,7 @@ valid_prefix_re = '^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*\.$'
 '''Regular expression that matches valid UID prefixes. Does not enforce length
 constraints.
 '''
+
 
 class InvalidUID(Exception):
     '''
@@ -213,13 +212,13 @@ def generate_uid(prefix=pydicom_root_UID, entropy_srcs=None):
     avail_digits = max_uid_len - len(prefix)
 
     if entropy_srcs is None:
-        entropy_srcs = [str(uuid.uuid1()), # 128-bit from MAC/time/randomness
-                        str(os.getpid()), # Current process ID
-                        hex(random.getrandbits(64)) # 64 bits randomness
+        entropy_srcs = [str(uuid.uuid1()),  # 128-bit from MAC/time/randomness
+                        str(os.getpid()),  # Current process ID
+                        hex(random.getrandbits(64))  # 64 bits randomness
                        ]
     hash_val = hashlib.sha512(''.join(entropy_srcs).encode('utf-8'))
 
     # Convert this to an int with the maximum available digits
-    dicom_uid = prefix  + str(int(hash_val.hexdigest(), 16))[:avail_digits]
+    dicom_uid = prefix + str(int(hash_val.hexdigest(), 16))[:avail_digits]
 
     return UID(dicom_uid)
