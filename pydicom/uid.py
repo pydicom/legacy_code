@@ -53,6 +53,8 @@ class UID(str):
     String representation (__str__) will be the name,
     __repr__ will be the full 1.2.840....
     """
+    name_to_uid_dict = None
+    
     def __new__(cls, val):
         """Set up new instance of the class"""
         # Don't repeat if already a UID class -- then may get the name
@@ -143,6 +145,14 @@ class UID(str):
 
     def __hash__(self):
         return super(UID, self).__hash__()
+        
+    @classmethod
+    def from_name(cls, name):
+        """Create a UID instance from the descriptive name"""
+        # If reverse lookup dictionary does not yet exist, create it
+        if not cls.name_to_uid_dict:
+            cls.name_to_uid_dict = dict((val[0], key) for key, val in UID_dictionary.items())
+        return UID(cls.name_to_uid_dict[name])
 
 ExplicitVRLittleEndian = UID('1.2.840.10008.1.2.1')
 ImplicitVRLittleEndian = UID('1.2.840.10008.1.2')

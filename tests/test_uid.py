@@ -123,6 +123,12 @@ class UIDtests(unittest.TestCase):
                          ):
             UID(valid_uid).is_valid() # Shouldn't raise
 
+    def testUIDfromName(self):
+        """UID: Can create instance from descriptive name...:"""
+        got = UID.from_name('Digital Mammography X-Ray Image Storage - For Presentation')
+        expected = '1.2.840.10008.5.1.4.1.1.1.2'
+        msg = "Did not get expected UID value"
+        self.assertEqual(expected, got, msg)
 
 if __name__ == "__main__":
     unittest.main()
