@@ -8,7 +8,7 @@ or import and use specific functions to provide code for pydicom DICOM classes
 # Copyright (c) 2013 Darcy Mason
 # This file is part of pydicom, released under an MIT license.
 #    See the file license.txt included with this distribution, also
-#    available at http://pydicom.googlecode.com
+#    available at https://github.com/darcymason/pydicom
 
 # Run this from the same directory as a "base" dicom file and
 # this code will output to screen the dicom parameters like:
@@ -275,9 +275,9 @@ if __name__ == "__main__":
     try:
         import argparse
     except ImportError:
-        print "The argparse module is required to run this script"
-        print "argparse is standard in python >= 2.7,"
-        print "   or can be installed with 'pip install argparse'"
+        print ("The argparse module is required to run this script")
+        print ("argparse is standard in python >= 2.7,")
+        print ("   or can be installed with 'pip install argparse'")
         sys.exit(-1)
 
     parser = argparse.ArgumentParser(

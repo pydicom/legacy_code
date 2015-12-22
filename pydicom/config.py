@@ -12,17 +12,18 @@ import logging
 
 # Set the type used to hold DS values
 #    default False; was decimal-based in pydicom 0.9.7
-use_DS_decimal = False  
+use_DS_decimal = False
 
 data_element_callback = None
 """Set data_element_callback to a function to be called from read_dataset
-every time a RawDataElement has been returned, before it is added 
+every time a RawDataElement has been returned, before it is added
 to the dataset.
 """
 
 data_element_callback_kwargs = {}
 """Set this to use as keyword arguments passed to the data_element_callback
 function"""
+
 
 def reset_data_element_callback():
     global data_element_callback
@@ -54,6 +55,11 @@ enforce_valid_values = True
 that are longer than 16 characters; IS strings outside the allowed range.
 """
 
+datetime_conversion = False
+"""Set datetime_conversion to convert DA, DT and TM data elements to
+datetime.date, datetime.datetime and datetime.time respectively. Default: False
+"""
+
 
 # Logging system and debug function to change logging level
 logger = logging.getLogger('pydicom')
@@ -61,6 +67,7 @@ handler = logging.StreamHandler()
 formatter = logging.Formatter("%(message)s")
 handler.setFormatter(formatter)
 logger.addHandler(handler)
+
 
 def debug(debug_on=True):
     """Turn debugging of DICOM file reading and writing on or off.
@@ -78,5 +85,4 @@ def debug(debug_on=True):
         debugging = False
 
 # force level=WARNING, in case logging default is set differently (issue 103)
-debug(False)  
-
+debug(False)

@@ -7,10 +7,14 @@
 
 from decimal import Decimal
 
-import pydicom.config
+from pydicom import config  # don't import datetime_conversion directly
 from pydicom import compat
 from pydicom.multival import MultiValue
+from pydicom.config import logger
 
+from datetime import date, datetime, time
+from dateutil.tz import tzoffset
+import re
 
 from pydicom.config import logger
 
@@ -22,8 +26,6 @@ extra_length_VRs = ('OB', 'OW', 'OF', 'SQ', 'UN', 'UT')
 # VRs that can be affected by character repertoire in (0008,0005) Specific Character Set
 # See PS-3.5 (2011), section 6.1.2 Graphic Characters
 text_VRs = ('SH', 'LO', 'ST', 'LT', 'UT')  # and PN, but it is handled separately.
-
-import re
 
 match_string = b''.join([
     b'(?P<single_byte>',
@@ -40,6 +42,205 @@ match_string_uni = re.compile(match_string.decode('iso8859'))
 match_string_bytes = re.compile(match_string)
 
 
+class DA(date):
+    """Store value for DICOM VR DA (Date) as datetime.date.
+
+    Note that the datetime.date base class is immutable.
+
+    """
+    __slots__ = 'original_string'
+
+    def __new__(cls, val):
+        """Create an instance of DA object.
+
+        Raise an exception if the string cannot be parsed or the argument
+        is otherwise incompatible.
+
+        :param val: val must be a string conformant to the DA definition
+        in the DICOM Standard PS 3.5-2011
+        """
+        if isinstance(val, (str, compat.string_types)):
+            if len(val) == 8:
+                year = int(val[0:4])
+                month = int(val[4:6])
+                day = int(val[6:8])
+                val = super(DA, cls).__new__(cls, year, month, day)
+            elif len(val) == 10 and val[4] == '.' and val[7] == '.':
+                # ACR-NEMA Standard 300, predecessor to DICOM
+                # for compatibility with a few old pydicom example files
+                year = int(val[0:4])
+                month = int(val[5:7])
+                day = int(val[8:10])
+                val = super(DA, cls).__new__(cls, year, month, day)
+            elif val == '':
+                val = None  # empty date
+            else:
+                raise ValueError("Cannot convert to date: '" + val + "'")
+        elif isinstance(val, date):
+            val = super(DA, cls).__new__(cls, val.year, val.month, val.day)
+        else:
+            val = super(DA, cls).__new__(cls, val)
+        return val
+
+    def __init__(self, val):
+        if isinstance(val, (str, compat.string_types)):
+            self.original_string = val
+        elif isinstance(val, DA) and hasattr(val, 'original_string'):
+            self.original_string = val.original_string
+
+    def __str__(self):
+        if hasattr(self, 'original_string'):
+            return self.original_string
+        else:
+            return super(DA, self).__str__()
+
+
+class DT(datetime):
+    """Store value for DICOM VR DT (DateTime) as datetime.datetime.
+
+    Note that the datetime.datetime base class is immutable.
+
+    """
+    __slots__ = 'original_string'
+    _regex_dt = re.compile(r"((\d{4,14})(\.(\d{1,6}))?)([+-]\d{4})?")
+
+    def __new__(cls, val):
+        """Create an instance of DT object.
+
+        Raise an exception if the string cannot be parsed or the argument
+        is otherwise incompatible.
+
+        :param val: val must be a string conformant to the DT definition
+        in the DICOM Standard PS 3.5-2011
+        """
+        if isinstance(val, (str, compat.string_types)):
+            match = DT._regex_dt.match(val)
+            if match and len(val) <= 26:
+                dt_match = match.group(2)
+                year = int(dt_match[0:4])
+                if len(dt_match) < 6:
+                    month = 1
+                else:
+                    month = int(dt_match[4:6])
+                if len(dt_match) < 8:
+                    day = 1
+                else:
+                    day = int(dt_match[6:8])
+                if len(dt_match) < 10:
+                    hour = 0
+                else:
+                    hour = int(dt_match[8:10])
+                if len(dt_match) < 12:
+                    minute = 0
+                else:
+                    minute = int(dt_match[10:12])
+                if len(dt_match) < 14:
+                    second = 0
+                    microsecond = 0
+                else:
+                    second = int(dt_match[12:14])
+                    ms_match = match.group(4)
+                    if ms_match:
+                        microsecond = int(ms_match.rstrip().ljust(6, '0'))
+                    else:
+                        microsecond = 0
+                tz_match = match.group(5)
+                if tz_match:
+                    offset = (int(tz_match[1:3]) * 60 + int(tz_match[3:5])) * 60
+                    if tz_match[0] == '-':
+                        offset = -offset
+                    tzinfo = tzoffset(tz_match, offset)
+                else:
+                    tzinfo = None
+                val = super(DT, cls).__new__(cls, year, month, day,
+                                             hour, minute, second,
+                                             microsecond, tzinfo)
+            else:
+                raise ValueError("Cannot convert to datetime: '" + val + "'")
+        elif isinstance(val, datetime):
+            val = super(DT, cls).__new__(cls, val.year, val.month, val.day,
+                                         val.hour, val.minute, val.second,
+                                         val.microsecond, val.tzinfo)
+        else:
+            val = super(DT, cls).__new__(cls, val)
+        return val
+
+    def __init__(self, val):
+        if isinstance(val, (str, compat.string_types)):
+            self.original_string = val
+        elif isinstance(val, DT) and hasattr(val, 'original_string'):
+            self.original_string = val.original_string
+
+    def __str__(self):
+        if hasattr(self, 'original_string'):
+            return self.original_string
+        else:
+            return super(DT, self).__str__()
+
+
+class TM(time):
+    """Store value for DICOM VR of TM (Time) as datetime.time.
+
+    Note that the datetime.time base class is immutable.
+
+    """
+    __slots__ = 'original_string'
+    _regex_tm = re.compile(r"(\d{2,6})(\.(\d{1,6}))?")
+
+    def __new__(cls, val):
+        """Create an instance of TM object from a string.
+
+        Raise an exception if the string cannot be parsed or the argument
+        is otherwise incompatible.
+
+        :param val: val must be a string conformant to the TM definition
+        in the DICOM Standard PS 3.5-2011
+        """
+        if isinstance(val, (str, compat.string_types)):
+            match = TM._regex_tm.match(val)
+            if match and len(val) <= 16:
+                tm_match = match.group(1)
+                hour = int(tm_match[0:2])
+                if len(tm_match) < 4:
+                    minute = 0
+                else:
+                    minute = int(tm_match[2:4])
+                if len(tm_match) < 6:
+                    second = 0
+                    microsecond = 0
+                else:
+                    second = int(tm_match[4:6])
+                    ms_match = match.group(3)
+                    if ms_match:
+                        microsecond = int(ms_match.rstrip().ljust(6, '0'))
+                    else:
+                        microsecond = 0
+                val = super(TM, cls).__new__(cls, hour, minute, second,
+                                             microsecond)
+            elif val == '':
+                val = None  # empty time
+            else:
+                raise ValueError("Cannot convert to time: '" + val + "'")
+        elif isinstance(val, time):
+            val = super(TM, cls).__new__(cls, val.hour, val.minute, val.second,
+                                         val.microsecond)
+        else:
+            val = super(TM, cls).__new__(cls, val)
+        return val
+
+    def __init__(self, val):
+        if isinstance(val, (str, compat.string_types)):
+            self.original_string = val
+        elif isinstance(val, TM) and hasattr(val, 'original_string'):
+            self.original_string = val.original_string
+
+    def __str__(self):
+        if hasattr(self, 'original_string'):
+            return self.original_string
+        else:
+            return super(TM, self).__str__()
+
+
 class DSfloat(float):
     """Store values for DICOM VR of DS (Decimal String) as a float.
 
@@ -54,7 +255,7 @@ class DSfloat(float):
         value later.
         """
         # ... also if user changes a data element value, then will get
-        # a different object, becuase float is immutable.
+        # a different object, because float is immutable.
 
         if isinstance(val, (str, compat.text_type)):
             self.original_string = val
@@ -68,7 +269,7 @@ class DSfloat(float):
             return super(DSfloat, self).__str__()
 
     def __repr__(self):
-        return "'" + str(self) + "'"
+        return "\"" + str(self) + "\""
 
 
 class DSdecimal(Decimal):
@@ -88,7 +289,7 @@ class DSdecimal(Decimal):
         # Store this value here so that if the input string is actually a valid
         # string but decimal.Decimal transforms it to an invalid string it will
         # still be initialized properly
-        enforce_length = pydicom.config.enforce_valid_values
+        enforce_length = config.enforce_valid_values
         # DICOM allows spaces around the string, but python doesn't, so clean it
         if isinstance(val, (str, compat.text_type)):
             val = val.strip()
@@ -98,7 +299,7 @@ class DSdecimal(Decimal):
                 enforce_length = False
         if val == '':
             return val
-        if isinstance(val, float) and not pydicom.config.allow_DS_float:
+        if isinstance(val, float) and not config.allow_DS_float:
             msg = ("DS cannot be instantiated with a float value, unless "
                    "config.allow_DS_float is set to True. It is recommended to "
                    "convert to a string instead, with the desired number of digits, "
@@ -133,10 +334,10 @@ class DSdecimal(Decimal):
             return super(DSdecimal, self).__str__()
 
     def __repr__(self):
-        return "'" + str(self) + "'"
+        return "\"" + str(self) + "\""
 
 # CHOOSE TYPE OF DS
-if pydicom.config.use_DS_decimal:
+if config.use_DS_decimal:
     DSclass = DSdecimal
 else:
     DSclass = DSfloat
@@ -176,7 +377,7 @@ class IS(int):
         if isinstance(val, (float, Decimal)) and newval != val:
             raise TypeError("Could not convert value to integer without loss")
         # Checks in case underlying int is >32 bits, DICOM does not allow this
-        if (newval < -2 ** 31 or newval >= 2 ** 31) and pydicom.config.enforce_valid_values:
+        if (newval < -2 ** 31 or newval >= 2 ** 31) and config.enforce_valid_values:
             message = "Value exceeds DICOM limits of -2**31 to (2**31 - 1) for IS"
             raise OverflowError(message)
         return newval
@@ -192,7 +393,7 @@ class IS(int):
         if hasattr(self, 'original_string'):
             return "'" + self.original_string + "'"
         else:
-            return "'" + int.__str__(self) + "'"
+            return "\"" + int.__str__(self) + "\""
 
 
 def MultiString(val, valtype=str):

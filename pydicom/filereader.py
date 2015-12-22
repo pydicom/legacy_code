@@ -18,14 +18,13 @@ from pydicom.valuerep import extra_length_VRs
 from pydicom.charset import default_encoding, convert_encodings
 from pydicom.compat import in_py2
 from pydicom import compat
-
+from pydicom import config  # don't import datetime_conversion directly
 from pydicom.config import logger
-from pydicom import config
 
 stat_available = True
 try:
     from os import stat
-except:
+except ImportError:
     stat_available = False
 
 from pydicom.errors import InvalidDicomError
@@ -128,7 +127,7 @@ def data_element_generator(fp, is_implicit_VR, is_little_endian,
         If None (default), then the whole file is read.
         A callable which takes tag, VR, length,
         and returns True or False. If it returns True,
-        read_data_element will raise StopIteration.
+        read_data_element will just return.
     defer_size : int, str, None, optional
         See ``read_file`` for parameter info.
     encoding :
@@ -188,7 +187,7 @@ def data_element_generator(fp, is_implicit_VR, is_little_endian,
         # Read tag, VR, length, get ready to read value
         bytes_read = fp_read(8)
         if len(bytes_read) < 8:
-            raise StopIteration  # at end of file
+            return  # at end of file
         if debugging:
             debug_msg = "{0:08x}: {1}".format(fp.tell() - 8,
                                               bytes2hex(bytes_read))
@@ -229,7 +228,7 @@ def data_element_generator(fp, is_implicit_VR, is_little_endian,
                 if not is_implicit_VR and VR in extra_length_VRs:
                     rewind_length += 4
                 fp.seek(value_tell - rewind_length)
-                raise StopIteration
+                return
 
         # Reading the value
         # First case (most common): reading a value with a defined length
@@ -625,6 +624,29 @@ def read_partial(fileobj, stop_when=None, defer_size=None, force=False):
             is_implicit_VR = False
     else:  # no header -- use the is_little_endian, implicit assumptions
         file_meta_dataset.TransferSyntaxUID = pydicom.uid.ImplicitVRLittleEndian
+        endian_chr = "<"
+        element_struct = Struct(endian_chr + "HH2sH")
+        # Try reading first 8 bytes
+        group, elem, VR, length = element_struct.unpack(fileobj.read(8))
+        # Rewind file object
+        fileobj.seek(0)
+        # If the VR is a valid VR, assume Explicit VR transfer systax
+        from pydicom.values import converters
+        if not in_py2:
+            VR = VR.decode(default_encoding)
+        if VR in converters.keys():
+            is_implicit_VR = False
+            # Determine if group in low numbered range (Little vs Big Endian)
+            if group == 0:  # got (0,0) group length. Not helpful.
+                # XX could use similar to http://www.dclunie.com/medical-image-faq/html/part2.html code example
+                msg = ("Not able to guess transfer syntax when first item "
+                       "is group length")
+                raise NotImplementedError(msg)
+            if group < 2000:
+                file_meta_dataset.TransferSyntaxUID = pydicom.uid.ExplicitVRLittleEndian
+            else:
+                file_meta_dataset.TransferSyntaxUID = pydicom.uid.ExplicitVRBigEndian
+                is_little_endian = False
 
     try:
         dataset = read_dataset(fileobj, is_implicit_VR, is_little_endian,

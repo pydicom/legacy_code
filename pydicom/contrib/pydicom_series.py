@@ -18,7 +18,7 @@ from __future__ import print_function
 # Copyright (c) 2010 Almar Klein
 # This file is released under the pydicom license.
 #    See the file license.txt included with the pydicom distribution, also
-#    available at http://pydicom.googlecode.com
+#    available at https://github.com/darcymason/pydicom
 #
 
 
@@ -51,13 +51,13 @@ from pydicom import compat
 try:
     import numpy as np
     have_numpy = True
-except Exception:
+except ImportError:
     np = None  # NOQA
     have_numpy = False
 
 
 # Helper functions and classes
-class ProgressBar:
+class ProgressBar(object):
     """ To print progress to the screen.
     """
     def __init__(self, char='-', length=20):

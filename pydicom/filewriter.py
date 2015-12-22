@@ -39,7 +39,7 @@ def write_numbers(fp, data_element, struct_format):
     try:
         try:
             value.append   # works only if list, not if string or number
-        except:  # is a single value - the usual case
+        except AttributeError:  # is a single value - the usual case
             fp.write(pack(format_string, value))
         else:
             for val in value:
@@ -100,7 +100,7 @@ def write_string(fp, data_element, padding=' ', encoding=default_encoding):
     """Write a single or multivalued string."""
     val = multi_string(data_element.value)
     if len(val) % 2 != 0:
-        val = val + padding   # pad to even length
+        val = val + padding  # pad to even length
 
     if isinstance(val, compat.text_type):
         val = val.encode(encoding)
@@ -119,12 +119,98 @@ def write_number_string(fp, data_element, padding=' '):
     else:
         val = val.original_string if hasattr(val, 'original_string') else str(val)
     if len(val) % 2 != 0:
-        val = val + padding   # pad to even length
+        val = val + padding  # pad to even length
 
     if not in_py2:
         val = bytes(val, default_encoding)
 
     fp.write(val)
+
+
+def _format_DA(val):
+    if val is None:
+        return ''
+    elif hasattr(val, 'original_string'):
+        return val.original_string
+    else:
+        return val.strftime("%Y%m%d")
+
+
+def write_DA(fp, data_element, padding=' '):
+    val = data_element.value
+    if isinstance(val, (str, compat.string_types)):
+        write_string(fp, data_element, padding)
+    else:
+        if isinstance(val, (list, tuple)):
+            val = "\\".join((x if isinstance(x, (str, compat.string_types))
+                             else _format_DA(x) for x in val))
+        else:
+            val = _format_DA(val)
+        if len(val) % 2 != 0:
+            val = val + padding  # pad to even length
+
+        if isinstance(val, compat.string_types):
+            val = val.encode(default_encoding)
+
+        fp.write(val)
+
+
+def _format_DT(val):
+    if hasattr(val, 'original_string'):
+        return val.original_string
+    elif val.microsecond > 0:
+        return val.strftime("%Y%m%d%H%M%S.%f%z")
+    else:
+        return val.strftime("%Y%m%d%H%M%S%z")
+
+
+def write_DT(fp, data_element, padding=' '):
+    val = data_element.value
+    if isinstance(val, (str, compat.string_types)):
+        write_string(fp, data_element, padding)
+    else:
+        if isinstance(val, (list, tuple)):
+            val = "\\".join((x if isinstance(x, (str, compat.string_types))
+                             else _format_DT(x) for x in val))
+        else:
+            val = _format_DT(val)
+        if len(val) % 2 != 0:
+            val = val + padding  # pad to even length
+
+        if isinstance(val, compat.string_types):
+            val = val.encode(default_encoding)
+
+        fp.write(val)
+
+
+def _format_TM(val):
+    if val is None:
+        return ''
+    elif hasattr(val, 'original_string'):
+        return val.original_string
+    elif val.microsecond > 0:
+        return val.strftime("%H%M%S.%f")
+    else:
+        return val.strftime("%H%M%S")
+
+
+def write_TM(fp, data_element, padding=' '):
+    val = data_element.value
+    if isinstance(val, (str, compat.string_types)):
+        write_string(fp, data_element, padding)
+    else:
+        if isinstance(val, (list, tuple)):
+            val = "\\".join((x if isinstance(x, (str, compat.string_types))
+                             else _format_TM(x) for x in val))
+        else:
+            val = _format_TM(val)
+        if len(val) % 2 != 0:
+            val = val + padding  # pad to even length
+
+        if isinstance(val, compat.string_types):
+            val = val.encode(default_encoding)
+
+        fp.write(val)
 
 
 def write_data_element(fp, data_element, encoding=default_encoding):
@@ -392,8 +478,8 @@ writers = {'UL': (write_numbers, 'L'),
            'OB': (write_OBvalue, None),
            'UI': (write_UI, None),
            'SH': (write_string, None),
-           'DA': (write_string, None),
-           'TM': (write_string, None),
+           'DA': (write_DA, None),
+           'TM': (write_TM, None),
            'CS': (write_string, None),
            'PN': (write_PN, None),
            'LO': (write_string, None),
@@ -414,6 +500,6 @@ writers = {'UL': (write_numbers, 'L'),
            'OB/OW': (write_OBvalue, None),
            'OB or OW': (write_OBvalue, None),
            'OW or OB': (write_OBvalue, None),
-           'DT': (write_string, None),
+           'DT': (write_DT, None),
            'UT': (write_string, None),
            }  # note OW/OB depends on other items, which we don't know at write time

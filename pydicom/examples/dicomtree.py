@@ -4,7 +4,7 @@ from __future__ import print_function
 # Copyright (c) 2008-2012 Darcy Mason
 # This file is part of pydicom, relased under an MIT license.
 #    See the file license.txt included with this distribution, also
-#    available at http://pydicom.googlecode.com
+#    available at https://github.com/darcymason/pydicom
 
 usage = "Usage: python dicomtree.py dicom_filename"
 
@@ -14,11 +14,12 @@ if compat.in_py2:
     import Tix as tkinter_tix
 else:
     import tkinter.tix as tkinter_tix
-    
+
+
 def RunTree(w, filename):
     top = tkinter_tix.Frame(w, relief=tkinter_tix.RAISED, bd=1)
     tree = tkinter_tix.Tree(top, options="hlist.columns 2")
-    tree.pack(expand=1, fill=tkinter_tix.BOTH, padx=10, pady=10, 
+    tree.pack(expand=1, fill=tkinter_tix.BOTH, padx=10, pady=10,
               side=tkinter_tix.LEFT)
     # print(tree.hlist.keys())   # use to see the available configure() options
     tree.hlist.configure(bg='white', font='Courier 10', indent=30)
