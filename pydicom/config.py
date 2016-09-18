@@ -74,11 +74,13 @@ image_handler_modules = None
 """Dynamically loaded modules for handling image pixel data.  Loaded when first needed in dataset.py"""
 
 def load_image_handler_modules():
-	"""Initialize the modules for handling image pixel data"""
-	# XXX later load these dynamically for all in the image_handlers list
-	import pydicom.handlers.standard_handler as standard_handler
-	import pydicom.handlers.gdcm_handler as gdcm_handler
-	image_handler_modules = [standard_handler, gdcm_handler]
+    """Initialize the modules for handling image pixel data"""
+    global image_handler_modules
+    
+    # XXX later load these dynamically for all in the image_handlers list
+    import pydicom.handlers.standard_handler as standard_handler
+    #import pydicom.handlers.gdcm_handler as gdcm_handler
+    image_handler_modules = [standard_handler] #, gdcm_handler]
 
 # Logging system and debug function to change logging level
 logger = logging.getLogger('pydicom')

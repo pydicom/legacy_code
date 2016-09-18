@@ -522,28 +522,34 @@ class Dataset(dict):
         elif self._pixel_id != id(self.PixelData):
             already_have = False
         if not already_have:
-			if not have_numpy:
-				msg = "The Numpy package is required to use pixel_array, and numpy could not be imported."
-				raise ImportError(msg)
-			if 'PixelData' not in self:
-				raise TypeError("No pixel data found in this dataset.")
-			
-			# Go through available image type handlers in order
-			if pydicom.config.image_handler_modules is None:
-				pydicom.config.load_handler_modules()
+            if not have_numpy:
+                msg = "The Numpy package is required to use pixel_array, and numpy could not be imported."
+                raise ImportError(msg)
+            if 'PixelData' not in self:
+                raise TypeError("No pixel data found in this dataset.")
+            
+            # Go through available image type handlers in order
+            
+            if pydicom.config.image_handler_modules is None:
+                pydicom.config.load_image_handler_modules()
 
-			messages = []
-			for handler in pydicom.config.image_handler_modules:
-				pix, msg = handler.process(self)
-				if pix is not None:
-					break
-			if pix is None:
-				msg = "Unable to process transfer syntax.\n"+"\n".join(messages)
-				raise NotImplementedError(msg)
-			self._pixel_array = pix
+            messages = []
+
+            for handler in pydicom.config.image_handler_modules:
+                pix, msg = handler.process(self)
+                if pix is not None:
+                    break
+            if pix is None:
+                msg = "Unable to process transfer syntax.\n"+"\n".join(messages)
+                raise NotImplementedError(msg)
+            self._pixel_array = pix
             self._pixel_id = id(self.PixelData)  # is this guaranteed to work if memory is re-used??
         return self._pixel_array
 
+    def _is_uncompressed_transfer_syntax(self):
+        # FIXME uses file_meta here, should really only be thus for FileDataset
+        return self.file_meta.TransferSyntaxUID in NotCompressedPixelTransferSyntaxes
+    
     @property
     def pixel_array(self):
         """Return the pixel data as a NumPy array"""

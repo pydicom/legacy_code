@@ -22,9 +22,7 @@ def process(ds):
              If unable to process, a message explaining libraries to install,
              or reason it cannot be processed.
     """
-
-
-    if ds._is_uncompressed_transfer_syntax():
+    if not ds._is_uncompressed_transfer_syntax():
         return None, "Standard image handler: unable to process compressed images"
 
     # Make NumPy format code, e.g. "uint16", "int32" etc
@@ -65,7 +63,7 @@ def process(ds):
                     pixel_array = pixel_array.reshape(ds.SamplesPerPixel, ds.Rows, ds.Columns)
                     pixel_array = pixel_array.transpose(1, 2, 0)
             else:
-                raise NotImplementedError("This code only handles SamplesPerPixel > 1 if Bits Allocated = 8")
+                return None, "This code only handles SamplesPerPixel > 1 if Bits Allocated = 8"
         else:
             pixel_array = pixel_array.reshape(ds.Rows, ds.Columns)
     return pixel_array, "Standard image handler: processed successfully"
