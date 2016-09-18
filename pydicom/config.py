@@ -60,6 +60,25 @@ datetime_conversion = False
 datetime.date, datetime.datetime and datetime.time respectively. Default: False
 """
 
+image_handlers = ['standard_handler', 'gdcm_handler']  # jpgls_handler, pil_handler
+"""Image handlers for converting pixel data.  These are tried in order
+until one can provide the pixel data.  The code is in the 'handlers' subdir.
+Change the order if needed to force using a specific handler, e.g. for speed.
+Handlers may require installation of dependencies.  If dependencies are not
+installed, the handler will not attempt conversion, and the next handler
+would be called.  If none can convert, the handlers will provide messages
+on what dependencies are needed.
+"""
+
+image_handler_modules = None
+"""Dynamically loaded modules for handling image pixel data.  Loaded when first needed in dataset.py"""
+
+def load_image_handler_modules():
+	"""Initialize the modules for handling image pixel data"""
+	# XXX later load these dynamically for all in the image_handlers list
+	import pydicom.handlers.standard_handler as standard_handler
+	import pydicom.handlers.gdcm_handler as gdcm_handler
+	image_handler_modules = [standard_handler, gdcm_handler]
 
 # Logging system and debug function to change logging level
 logger = logging.getLogger('pydicom')
