@@ -534,14 +534,18 @@ class Dataset(dict):
                 pydicom.config.load_image_handler_modules()
 
             messages = []
-
+            
             for handler in pydicom.config.image_handler_modules:
                 pix, msg = handler.process(self)
+                messages.append(msg)
                 if pix is not None:
                     break
             if pix is None:
-                msg = "Unable to process transfer syntax.\n"+"\n".join(messages)
-                raise NotImplementedError(msg)
+                message = "\n".join(messages)
+                if any([msg.startswith("ImportError") for msg in messages]):
+                    raise ImportError(message)
+                else: # have libraries but they couldn't process the image
+                    raise NotImplementedError(message)
             self._pixel_array = pix
             self._pixel_id = id(self.PixelData)  # is this guaranteed to work if memory is re-used??
         return self._pixel_array

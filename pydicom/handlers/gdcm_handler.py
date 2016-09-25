@@ -14,7 +14,7 @@ except ImportError:
 
 def process(ds):
 	if not have_gdcm:
-		return None, "GDCM handler: Could process pixel data but GDCM needs to be installed"
+		return None, "ImportError: Could process pixel data if GDCM were installed"
 	elif have_gdcm and ds.filename:
 		# read the file using GDCM
 		# FIXME this should just use ds.PixelData instead of ds.filename
