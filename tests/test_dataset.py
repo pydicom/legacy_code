@@ -231,7 +231,8 @@ class DatasetTests(unittest.TestCase):
 
         msg = ("Dataset.get() returned different objects for ds.get(tag) "
                "and ds[tag]:\nBy get():%r\nBy ds[tag]:%r\n")
-        self.assertEqual(by_get, by_item, msg % (by_get, by_item))
+        msg = msg % (by_get, by_item)
+        self.assertEqual(by_get, by_item, msg)
 
     def test__setitem__(self):
         """Dataset: if set an item, it must be a DataElement instance......."""

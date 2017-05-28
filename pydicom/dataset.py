@@ -621,6 +621,18 @@ class Dataset(dict):
         """Compare `self` and `other` for inequality."""
         return not (self == other)
 
+    @property
+    def PixelData(self):
+        return self.pixel_array
+
+    @property
+    def pixel_bytes(self):
+        val = self.get_item(0x7fe00010).value
+        if have_numpy and isinstance(val, numpy.ndarray):
+            return val.tostring()
+        else:
+            return val
+
     def _pixel_data_numpy(self):
         """If NumPy is available, return an ndarray of the Pixel Data.
 
@@ -641,7 +653,7 @@ class Dataset(dict):
         """
         if not self._is_uncompressed_transfer_syntax():
             if not have_gdcm:
-                raise NotImplementedError("Pixel Data is compressed in a "
+                raise ImportError("Pixel Data is compressed in a "
                                           "format pydicom does not yet handle. "
                                           "Cannot return array. Pydicom might "
                                           "be able to convert the pixel data "
