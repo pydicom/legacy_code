@@ -654,6 +654,8 @@ class Dataset(dict):
         if not self._is_uncompressed_transfer_syntax():
             if not have_gdcm:
                 raise ImportError("Pixel Data is compressed in a "
+                raise NotImplementedError("Pixel Data is compressed in a "
+                raise NotImplementedError("Pixel Data is compressed in a "
                                           "format pydicom does not yet handle. "
                                           "Cannot return array. Pydicom might "
                                           "be able to convert the pixel data "
@@ -757,6 +759,16 @@ class Dataset(dict):
                     pass
 
         pixel_array = numpy.fromstring(pixel_bytearray, dtype=numpy_dtype)
+        length_of_pixel_array = pixel_array.nbytes
+        expected_length = self.Rows * self.Columns
+        if 'NumberOfFrames' in self and self.NumberOfFrames > 1:
+            expected_length *= self.NumberOfFrames
+        if 'SamplesPerPixel' in self and self.SamplesPerPixel > 1:
+            expected_length *= self.SamplesPerPixel
+        if self.BitsAllocated > 8:
+            expected_length *= (self.BitsAllocated // 8)
+        if length_of_pixel_array != expected_length:
+            raise AttributeError("Amount of pixel data %d does not match the expected data %d" % (length_of_pixel_array, expected_length))
 
         # Note the following reshape operations return a new *view* onto
         #   pixel_array, but don't copy the data
@@ -868,7 +880,7 @@ class Dataset(dict):
                                               "Allocated = 8")
             else:
                 arr = arr.reshape(self.Rows, self.Columns)
-        if (self.file_meta.TransferSyntaxUID in pydicom.uid.JPEG2000CompressedPixelTransferSyntaxes and self.BitsStored == 16):
+        if self.file_meta.TransferSyntaxUID in pydicom.uid.JPEG2000CompressedPixelTransferSyntaxes and self.BitsStored == 16:
             # WHY IS THIS EVEN NECESSARY??
             arr &= 0x7FFF
         return arr
@@ -918,7 +930,14 @@ class Dataset(dict):
                     try:
                         decompressed_image = PILImg.open(fio)
                     except IOError as e:
-                        raise NotImplementedError(e.message)
+                        try:
+                            message = str(e)
+                        except:
+                            try:
+                                message = unicode(e)
+                            except:
+                                message = ''
+                        raise NotImplementedError(message)
                     UncompressedPixelData += decompressed_image.tobytes()
             else:
                 # single compressed frame
@@ -928,7 +947,14 @@ class Dataset(dict):
                     fio = io.BytesIO(UncompressedPixelData)
                     decompressed_image = PILImg.open(fio)
                 except IOError as e:
-                    raise NotImplementedError(e.message)
+                    try:
+                        message = str(e)
+                    except:
+                        try:
+                            message = unicode(e)
+                        except:
+                            message = ''
+                    raise NotImplementedError(message)
                 UncompressedPixelData = decompressed_image.tobytes()
         except:
             raise
